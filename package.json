@@ -1,0 +1,19 @@
+{
+  "name": "canvas-toolkit-peng",
+  "version": "0.1.0",
+  "description": "Canvas Toolkit Peng Obsidian plugin",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "20.14.10",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.17.19",
+    "obsidian": "latest",
+    "tslib": "2.6.3",
+    "typescript": "5.9.3"
+  }
+}

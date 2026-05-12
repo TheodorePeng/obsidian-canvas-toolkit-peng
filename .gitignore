@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+.obsidian/
+.cache/
+.idea/
+.vscode/
+*.log
+*.tmp
+*.swp
+*.swo
+*.tsbuildinfo
+data.json
