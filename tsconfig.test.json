@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "outDir": ".test-build",
+    "rootDir": ".",
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/agent-contract.ts",
+    "tests/**/*.ts"
+  ]
+}

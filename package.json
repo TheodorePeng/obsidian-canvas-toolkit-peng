@@ -1,11 +1,12 @@
 {
   "name": "canvas-toolkit-peng",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Canvas Toolkit Peng Obsidian plugin",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js"
   },
   "license": "MIT",
   "devDependencies": {

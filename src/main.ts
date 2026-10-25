@@ -1,3 +1,4 @@
+import { AgentBridge } from "./agent-bridge";
 import { Notice, Plugin } from "obsidian";
 import { CanvasContextService } from "./canvas-context";
 import { ResizeEngine } from "./resize-engine";
@@ -13,6 +14,7 @@ interface CommandTargetResult {
 
 export default class CanvasToolkitPengPlugin extends Plugin {
   settings: CanvasToolkitPengSettings = DEFAULT_SETTINGS;
+  agentBridge!: AgentBridge;
 
   private canvasContext!: CanvasContextService;
   private resizeEngine!: ResizeEngine;
@@ -25,7 +27,14 @@ export default class CanvasToolkitPengPlugin extends Plugin {
     this.resizeEngine = new ResizeEngine(new CanvasRenderCoordinator());
     this.singleCardCompatibility = new SingleCardCompatibilityController(this.app);
 
+    this.agentBridge = new AgentBridge(this.app, this.canvasContext, this.resizeEngine);
     this.addCommands();
+    this.addCommand({id: "capture-agent-selection", name: "Capture selection for Agent", callback: () => {
+      void this.agentBridge.captureContext({scope: (() => { const c=this.canvasContext.getActiveCanvas(); const n=c?this.canvasContext.getSelectedNodes(c):[]; return n.length===1 && this.canvasContext.isGroupNode(n[0]) ? "group" : "selected"; })()}).then(snapshot => {
+        this.agentBridge.lastSnapshotId = snapshot.snapshotId;
+        new Notice(`Canvas selection captured: ${snapshot.snapshotId}`);
+      }).catch(error => new Notice(String(error)));
+    }});
     this.addSettingTab(new CanvasToolkitPengSettingTab(this.app, this));
 
     this.registerEvent(
@@ -44,6 +53,7 @@ export default class CanvasToolkitPengPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.agentBridge?.dispose();
     this.singleCardCompatibility.disable();
   }
 
