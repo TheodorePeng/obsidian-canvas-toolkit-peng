@@ -43,6 +43,9 @@ export class AgentBridge {
     insist(leaves.length<=1,"scope","Multiple views of this canvas; specify leafId");
     return leaves[0] ?? null;
   }
+  private node(leaf:any,id:string):any {
+    return leaf?.view?.canvas?.nodes?.get(id) ?? null;
+  }
   private dirtyMarkdown(path: string, disk:string): boolean {
     return this.app.workspace.getLeavesOfType("markdown").some((l:any)=>l.view.file?.path===path && typeof l.view.editor?.getValue==="function" && l.view.editor.getValue()!==disk);
   }
@@ -261,19 +264,34 @@ export class AgentBridge {
   }
   private async open(path:string):Promise<any> {
     let l=this.leaf(path);if(l)return l;
-    const f=this.file(path);insist(f,"missing","Canvas missing");l=this.app.workspace.getLeaf("tab");await l.openFile(f);return l;
+    const f=this.file(path);insist(f,"missing","Canvas missing");l=this.app.workspace.getLeaf("tab");await l.openFile(f);
+    // A freshly created Canvas hydrates its node map asynchronously; wait for it so
+    // immediate geometry work does not race an empty view.
+    const expected=JSON.parse(await this.app.vault.read(f)).nodes.length;
+    for(let i=0;i<40;i++){
+      const view=l.view,canvas=view?.canvas;
+      if(view?.file&&typeof canvas?.requestSave==="function"&&canvas.nodes?.size===expected)return l;
+      await sleep(50);
+    }
+    throw new BridgeError("runtime","Canvas view did not become ready");
   }
   private async saved(leaf:any):Promise<string> {
     insist(typeof leaf.view.save==="function","unsupported","Canvas save interface unavailable");
     insist(typeof leaf.view.canvas?.requestSave==="function","unsupported","Canvas save synchronization unavailable");
+    // Current Obsidian replaces the Canvas view instance when it saves, leaving
+    // leaf.view.file null for a moment; keep the TFile handle captured up front.
+    const binding=leaf.view.file;
     leaf.view.canvas.requestSave();
     for(let i=0;i<40;i++){
       if(canonical(JSON.parse(leaf.view.getViewData()))===canonical(leaf.view.canvas.getData())) { await leaf.view.save(); break; }
       await sleep(50);
     }
     for(let i=0;i<40;i++){
-      const disk=await this.app.vault.read(leaf.view.file);
-      if(canonical(JSON.parse(disk))===canonical(leaf.view.canvas.getData()))return disk;
+      const target=leaf.view.file??binding;
+      if(target){
+        const disk=await this.app.vault.read(target);
+        if(canonical(JSON.parse(disk))===canonical(leaf.view.canvas.getData()))return disk;
+      }
       await sleep(50);
     }
     throw new BridgeError("persistence","Canvas runtime and saved file did not converge");
@@ -330,12 +348,22 @@ export class AgentBridge {
       const ids:string[]=request.nodeIds;insist(Array.isArray(ids)&&ids.length&&new Set(ids).size===ids.length,"scope","Explicit draft node IDs required");
       const diagnostics:Json[]=[];
       for(const id of ids){
-        this.checkCancelled(op);const node=c.nodes.get(id);insist(node&&node.getData().type!=="group","scope","Unknown draft content node");
-        const result=await this.resize.fitNodesToContent([node]);op.mutated=true;
-        diagnostics.push({id,...result});
+        this.checkCancelled(op);
+        // Resizing can trigger a debounced save, which swaps the Canvas view and
+        // clears the previous node map; always re-resolve against the live view.
+        // Embeds may also still be settling, so retry an unresolved measurement.
+        let node=this.node(leaf,id), measured:Json|null=null;
+        for(let attempt=0;attempt<12;attempt++){
+          if(!node){node=this.node(leaf,id);if(!node){await sleep(80);continue;}}
+          measured=await this.resize.fitNodesToContent([node]);op.mutated=true;
+          if(!measured.unresolved&&!measured.skipped)break;
+          await sleep(120);node=this.node(leaf,id);
+        }
+        insist(node&&measured,"scope","Unknown draft content node");
+        diagnostics.push({id,...measured});
       }
       this.checkCancelled(op);await this.saved(leaf);
-      return {data:clone(c.getData()),diagnostics,partial:diagnostics.some(d=>d.unresolved||d.skipped),hash:await hash(await this.app.vault.read(f))};
+      return {data:clone(leaf.view.canvas.getData()),diagnostics,partial:diagnostics.some(d=>d.unresolved||d.skipped),hash:await hash(await this.app.vault.read(f))};
     }
     const snapshot=this.snapshots.get(request.snapshotId);
     insist(snapshot&&snapshot.path===request.path&&snapshot.leafId===leaf.id,"conflict","Snapshot is missing or belongs to another view");
