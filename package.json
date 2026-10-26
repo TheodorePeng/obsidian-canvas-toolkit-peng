@@ -1,6 +1,6 @@
 {
   "name": "canvas-toolkit-peng",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Canvas Toolkit Peng Obsidian plugin",
   "main": "main.js",
   "scripts": {

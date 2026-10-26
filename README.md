@@ -51,7 +51,7 @@ Canvas Toolkit Peng is an Obsidian Canvas utility plugin that automatically resi
 - Obsidian 1.7.7 or later
 - Obsidian Canvas workflow on desktop
 
-## Desktop Agent bridge (local 0.2.0)
+## Desktop Agent bridge (v0.2.1)
 
 `app.plugins.plugins["canvas-toolkit-peng"].agentBridge` exposes protocol version 1:
 
@@ -59,13 +59,18 @@ Canvas Toolkit Peng is an Obsidian Canvas utility plugin that automatically resi
 | --- | --- |
 | `capabilities()` | Protocol, operations and environment |
 | `captureContext({path, scope, leafId?, snapshotId?, open?})` | Bound file/runtime revision and actual selection |
+| `viewIdentity()` | Active Canvas, leaf, generation and view revision for screenshot binding |
+| `inspectReferences({path, references, sourcePaths?})` | Native heading/block resolution, duplicate candidates, source ranges and hashes |
+| `inspectCanvas({path, nodeIds, leafId?, expectedHash?, runtimeHash?})` | One to eight explicit cards: real rendered text, dimensions, overflow and empty special outputs |
 | `validateDocument({path, content, previousContent?})` | YAML, Canvas and changed local-reference checks |
 | `validateBaseQuery({path})` | Native compiled Bases expressions and evaluation diagnostics |
 | `submit(request)` | Accept a fixed operation; execution is asynchronous |
 | `getOperation(operationId)` | Read completion, persistence and diagnostics |
 | `cancelOperation(operationId)` | Stop at the next safe boundary |
 
-Submit requests bind `operationId`, `vault`, `path`, `kind`, and `expectedHash` (null only for new files). Geometry requests additionally bind a captured `snapshotId`/`leafId`, explicit patch IDs and permitted fields. Supported kinds are `write`, `restore`, `recover-trash`, `canvas-patch`, and staging-only `canvas-fit`. No request can execute arbitrary JavaScript. CLI callers may use fixed templates to reach these methods.
+Submit requests bind `operationId`, `vault`, `path`, `kind`, and `expectedHash` (null only for new files). Geometry requests additionally bind a captured `snapshotId`/`leafId`, explicit patch IDs and permitted fields. Supported kinds are `write`, `restore`, `recover-trash`, `canvas-patch`, staging-only `canvas-fit`, and whole-map `canvas-restructure`. Restructure also binds the runtime version, source manifest and independently checked structural delta; removals and existing text changes need explicit reasons. Unknown fields and existing types remain protected. No request can execute arbitrary JavaScript. CLI callers may use fixed templates to reach these methods.
+
+`comparisonPolicy:"flat"` permits root node/edge ordering differences only for validated, non-overlapping, single-level maps. Nested arrays and every field remain strict. Local geometry operations retain strict order protection. Native saves must converge across repeated raw disk/runtime observations before a persistence receipt is issued. Protected `captureContext` supports `open:true`, `expectedHash`, `sourceHashes`, and `view:"overview"|"node"` (`nodeId` for detail views); use the manager's `capture` command to bind an actual screenshot to that view. DOM inspection never certifies visual quality.
 
 Writes are serialized in the Vault; the App retains the queue tail across plugin reloads until the previous generation finishes unwinding. Reusing an ID with identical input returns its existing receipt; changed input is refused. States are `accepted`, `running`, then `completed`, `partial`, `conflict`, `failed` or `cancelled`. Receipts persist under this plugin's local `agent-runs/`; reload interruptions become `partial`. A cancellation after mutation remains `partial`. Always query an existing ID after transport loss before another write.
 
@@ -73,7 +78,7 @@ The runtime adapter checks Canvas serialization and geometry/save interfaces, wa
 
 During Agent Canvas operations only, Enhanced Canvas frontmatter automation is paused in memory and restored in `finally`; no settings file is rewritten. Concurrent settings changes cause a conflict. The manager independently checks source hashes. Later manual opens or plugin-wide sync use the restored settings. This narrow integration was tested with Enhanced Canvas 1.0.29 and Advanced Canvas 6.5.4 in Math Peng; other combinations require live validation. Bases diagnostics also depend on desktop runtime interfaces and fail explicitly when unavailable. Mobile Agent use is unsupported; existing command loading remains separate.
 
-Development checks: `npm test` (TypeScript + Node test runner), then `npm run build`. Version 0.2.0 is a local test build, not a published release.
+Development checks: `npm test` (TypeScript + Node test runner), then `npm run build`. Version 0.2.1 is the published release. The Obsidian Manager Peng 0.2.0 guide documents grouped prepare/preview/review/apply/verify and conditional recovery.
 
 ## Repository layout
 

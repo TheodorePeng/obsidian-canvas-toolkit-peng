@@ -60,6 +60,13 @@ export class CanvasRenderCoordinator {
     if (!canvas) {
       return { ready: false, reason: "Canvas runtime is missing for this node." };
     }
+    // Overview zoom suppresses native card DOM mounting. Measurement callers
+    // capture/restore the viewport; inspect at native scale before panning.
+    if (typeof canvas.setViewport === "function" && canvas.zoom !== 0) {
+      canvas.setViewport(Number(canvas.x ?? 0), Number(canvas.y ?? 0), 0);
+      canvas.requestFrame?.();
+      await this.waitForFrames(2);
+    }
 
     if (!bbox) {
       return { ready: false, reason: "Node bounding box is unavailable." };

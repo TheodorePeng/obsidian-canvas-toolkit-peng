@@ -616,6 +616,23 @@ export class ResizeEngine {
     return heightChanged;
   }
 
+  /** Read-only native diagnostics. Measurement is not a screenshot review. */
+  async inspectNode(node:CanvasNodeLike,contains:string[]=[]):Promise<any>{
+    const viewport=node.canvas?this.renderCoordinator.captureViewport(node.canvas):null;
+    try{
+      const readiness=await this.renderCoordinator.ensureNodeReady(node),measurement=readiness.ready?this.readLiveMeasurement(node):null;
+      const preview=this.renderCoordinator.getPreviewElement(node),text=preview instanceof HTMLElement?preview.innerText:"";
+      const normalize=(s:string)=>s.replace(/\s+/g," ").trim();
+      const specialOutputs:Record<string,boolean>={};
+      for(const language of ["markmap","mermaid","dataview","dataviewjs"]){
+        const blocks=Array.from(node.nodeEl?.querySelectorAll(`.block-language-${language}, .${language}`)??[]) as HTMLElement[];
+        specialOutputs[language]=blocks.some(el=>el.getBoundingClientRect().height>1&&(language==="markmap"||language==="mermaid"?Boolean(el.querySelector("svg,canvas")):Boolean(el.innerText.trim()||el.querySelector("svg,canvas,table"))));
+      }
+      return {ready:readiness.ready,reason:readiness.reason,measurement,previewText:text.slice(0,1800),
+        expected:contains.map(s=>({text:s,matched:normalize(text).includes(normalize(s))})),specialOutputs};
+    }finally{if(node.canvas)await this.renderCoordinator.restoreViewport(node.canvas,viewport);}
+  }
+
   private readLiveMeasurement(node: CanvasNodeLike): LiveMeasurement | null {
     if (!(node.nodeEl instanceof HTMLElement)) {
       return null;
